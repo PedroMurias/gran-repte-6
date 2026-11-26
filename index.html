@@ -44,6 +44,26 @@
                 radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.10) 0%, transparent 50%);
         }
 
+
+        /* ===== Fons animats (data-bg="aurora" | "particules" | "plato") ===== */
+        #bgfx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: #0B0F19; }
+        #bgfx .blob { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(70px); opacity: .55; mix-blend-mode: screen; animation: drift 28s ease-in-out infinite alternate; }
+        #bgfx .b1 { background: radial-gradient(circle, #22d3ee 0%, transparent 60%); top: -20vmax; left: -15vmax; }
+        #bgfx .b2 { background: radial-gradient(circle, #a855f7 0%, transparent 60%); top: 10vmax; right: -20vmax; animation-duration: 34s; animation-delay: -10s; }
+        #bgfx .b3 { background: radial-gradient(circle, #10b981 0%, transparent 60%); bottom: -25vmax; left: 20vmax; animation-duration: 40s; animation-delay: -20s; }
+        #bgfx .b4 { background: radial-gradient(circle, #f59e0b 0%, transparent 60%); bottom: -10vmax; right: 10vmax; width: 40vmax; height: 40vmax; opacity: .35; animation-duration: 31s; animation-delay: -5s; }
+        @keyframes drift { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(8vmax,-6vmax) scale(1.15); } 100% { transform: translate(-6vmax,8vmax) scale(.95); } }
+        #bgfx canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #bgfx .beams { position: absolute; left: 50%; top: 35%; width: 240vmax; height: 240vmax; transform: translate(-50%,-50%); background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.045) 0 5deg, transparent 5deg 14deg); animation: spin 90s linear infinite; mask: radial-gradient(circle at 50% 50%, #000 0, rgba(0,0,0,.5) 35%, transparent 70%); -webkit-mask: radial-gradient(circle at 50% 50%, #000 0, rgba(0,0,0,.5) 35%, transparent 70%); }
+        @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        #bgfx .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(56,189,248,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.07) 1px, transparent 1px); background-size: 48px 48px; mask: linear-gradient(#000 20%, transparent 90%); -webkit-mask: linear-gradient(#000 20%, transparent 90%); animation: gridmove 18s linear infinite; }
+        @keyframes gridmove { to { background-position: 0 48px, 48px 0; } }
+        html[data-bg="aurora"] #bgfx .beams, html[data-bg="aurora"] #bgfx .grid { display: none; }
+        html[data-bg="particules"] #bgfx .blob { opacity: .22; } html[data-bg="particules"] #bgfx .beams { display: none; }
+        html[data-bg="plato"] #bgfx .grid { display: none; } html[data-bg="plato"] #bgfx .blob { opacity: .3; filter: blur(90px); }
+        body.studio-bg { background-image: none; background-color: transparent; }
+        @media (prefers-reduced-motion: reduce) { #bgfx .blob, #bgfx .beams, #bgfx .grid { animation: none; } }
+
         /* Tarjeta Glassmorphism con borde iluminado */
         .glass-panel {
             background: rgba(17, 25, 40, 0.76);
@@ -235,6 +255,7 @@
     </style>
 </head>
 <body class="studio-bg min-h-screen flex flex-col justify-between">
+    <div id="bgfx" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div><div class="beams"></div><div class="grid"></div><canvas id="bgParticles"></canvas></div>
 
     <!-- =====================================================================
          CABECERA ESTILO PLATÓ TV (HUD GLOBAL)
@@ -2220,6 +2241,32 @@
         document.getElementById('btn-install').addEventListener('click', async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; document.getElementById('btn-install').classList.add('hidden'); });
         window.addEventListener('appinstalled', () => document.getElementById('btn-install').classList.add('hidden'));
         if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch (e) { /* sense SW (p. ex. dins d'un marc) */ } }
+
+        /* Fons: variant i partícules */
+        (function () {
+            const q = new URLSearchParams(location.search).get('bg');
+            let v = q || (function () { try { return localStorage.getItem('egr6_bg'); } catch (e) { return null; } })() || 'aurora';
+            if (!['aurora', 'particules', 'plato'].includes(v)) v = 'aurora';
+            document.documentElement.dataset.bg = v;
+            if (q) { try { localStorage.setItem('egr6_bg', v); } catch (e) { /* */ } }
+            const cv = document.getElementById('bgParticles'), ctx = cv.getContext('2d');
+            const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let W, H, P = [];
+            const N = v === 'particules' ? 90 : v === 'plato' ? 50 : 40;
+            function resize() { W = cv.width = innerWidth * devicePixelRatio; H = cv.height = innerHeight * devicePixelRatio; }
+            function make() { P = Array.from({ length: N }, () => ({ x: Math.random() * W, y: Math.random() * H, r: (v === 'particules' ? 1.2 + Math.random() * 2.6 : .6 + Math.random() * 1.6) * devicePixelRatio, s: (.15 + Math.random() * .45) * devicePixelRatio, a: Math.random() * 6.28, tw: .5 + Math.random(), c: v === 'particules' ? ['#67e8f9', '#c4b5fd', '#6ee7b7', '#fde68a'][Math.random() * 4 | 0] : '#ffffff' })); }
+            function tick(t) {
+                ctx.clearRect(0, 0, W, H);
+                for (const p of P) {
+                    if (!reduce) { p.y -= p.s; p.x += Math.sin(t / 1800 + p.a) * .25 * devicePixelRatio; if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; } }
+                    const al = v === 'aurora' ? .35 + .35 * Math.sin(t / 900 * p.tw + p.a) : .55 + .35 * Math.sin(t / 700 * p.tw + p.a);
+                    ctx.globalAlpha = Math.max(.08, al); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill();
+                    if (v === 'particules') { ctx.globalAlpha = al * .25; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3, 0, 6.28); ctx.fill(); }
+                }
+                if (!reduce) requestAnimationFrame(tick);
+            }
+            resize(); make(); addEventListener('resize', () => { resize(); make(); }); requestAnimationFrame(tick);
+        })();
 
         window.onload = function() {
             renderAvatarSelector();
