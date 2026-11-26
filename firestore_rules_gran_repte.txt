@@ -1,0 +1,15 @@
+    // ===== El Gran Repte 6è: punts i classificació =====
+    // Un document per alumne (totals) i, a dins, l'historial de partides. Els alumnes de l'escola veuen els totals
+    // (classificació de la classe); cada alumne només escriu els seus. El professorat ho llegeix tot.
+    match /gr_users/{uid} {
+      allow get, list: if member() || isTeacher() || isAdmin();
+      allow create, update: if member() && request.auth.uid == uid && request.resource.data.uid == uid
+        && request.resource.data.email == email()
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+      allow delete: if isAdmin();
+      match /games/{gid} {
+        allow read: if (request.auth != null && request.auth.uid == uid) || isTeacher() || isAdmin();
+        allow create: if member() && request.auth.uid == uid;
+        allow update, delete: if isAdmin();
+      }
+    }
